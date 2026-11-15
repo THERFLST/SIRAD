@@ -455,3 +455,12 @@ body .main-menu:not([hidden]) .ml{display:inline}
 .dash-card:hover,.dash-card:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
 .dash-card b{font-size:15px}
 .dash-card small{color:var(--muted);font-size:12px}
+
+/* Layar kecil: rail ikon lebih sempit dan tidak menutupi isi */
+@media (max-width: 860px) {
+  :root { --sb: 56px; }
+  .main-menu-wrap { padding: 10px 6px; gap: 8px; }
+  .main-menu-wrap:has(.main-menu:not([hidden])) { width: min(230px, 80vw); }
+  .main-menu-toggle { width: 44px; height: 44px; margin: 0 auto; }
+  body .main-menu button[data-module] { min-height: 42px; }
+}
