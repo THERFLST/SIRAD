@@ -475,3 +475,7 @@ html body .main-menu-wrap .main-menu button[data-module] svg{flex:none;display:b
   html body .main-menu-wrap{width:56px!important}
   html body .main-menu-wrap:has(.main-menu:not([hidden])){width:min(240px,80vw)!important}
 }
+
+/* Menu/kartu yang tidak boleh diakses oleh peran akun */
+html body .main-menu-wrap .main-menu button[data-module][hidden]{display:none!important}
+.dash-card[hidden]{display:none!important}

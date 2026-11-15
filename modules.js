@@ -616,6 +616,7 @@
   };
 
   function setModule(module) {
+    if (window.SIR_ALLOWED && window.SIR_ALLOWED.indexOf(module) < 0) module = window.SIR_ALLOWED[0];
     const menu = $('mainMenu');
     const toggle = $('mainMenuToggle');
     if (menu) menu.hidden = true;
@@ -623,7 +624,7 @@
 
     const moduleTarget = `v-${module}`;
     const subtitle = document.getElementById('activeModuleSubtitle');
-    if (subtitle) subtitle.textContent = ({ konvensional: 'Rekap Konvensional', usg: 'Rekap USG', waktu: 'Laporan Waktu Pelayanan', reminder: 'Reminder USG', master: 'Master Pemeriksaan' })[module] || ''; 
+    if (subtitle) subtitle.textContent = ({ dashboard: 'Dashboard', konvensional: 'Rekap Konvensional', usg: 'Rekap USG', waktu: 'Laporan Waktu Pelayanan', reminder: 'Reminder USG', master: 'Master Pemeriksaan' })[module] || ''; 
     document.querySelectorAll('.view').forEach((view) => {
       const shouldHide = view.id !== moduleTarget && !['v-usg', 'v-waktu'].includes(view.id);
       if (shouldHide) {
@@ -698,6 +699,7 @@
 
     renderUsgModule();
     renderServiceReports();
+    setModule('dashboard');
 
     const saveButton = $('saveService');
     if (saveButton) {
