@@ -12,9 +12,10 @@
     master: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
     moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+    dashboard: svg('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
     logo: svg('<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>')
   };
-  var SHORT = { konvensional: 'Konvensional', usg: 'USG', waktu: 'Waktu', reminder: 'Reminder', master: 'Master' };
+  var SHORT = { dashboard: 'Dashboard', konvensional: 'Konvensional', usg: 'USG', waktu: 'Waktu', master: 'Master' };
 
   function currentTheme() {
     try { var s = localStorage.getItem(KEY); if (s === 'dark' || s === 'light') return s; } catch (e) {}
@@ -44,7 +45,7 @@
     });
     var brand = document.createElement('div');
     brand.className = 'sb-brand';
-    brand.innerHTML = '<span class="sb-logo">' + ICON.logo + '</span><div><b>Radiologi</b><small>RS Setia Mitra</small></div>';
+    brand.innerHTML = '<span class="sb-logo sb-sir">SIR</span><div><b>Radiologi</b><small>RS Setia Mitra</small></div>';
     var label = document.createElement('div');
     label.className = 'sb-label'; label.textContent = 'Menu';
     menu.insertBefore(label, menu.firstChild);
@@ -67,14 +68,14 @@
   // Modul aktif dibaca dari tampilan (class "on" & atribut hidden), jadi tetap benar
   // walau perpindahan modul ditangani oleh modules.js maupun master.js.
   function activeModule() {
-    var order = ['usg', 'waktu', 'reminder', 'master'];
+    var order = ['dashboard', 'usg', 'waktu', 'reminder', 'master'];
     for (var i = 0; i < order.length; i++) {
       var v = $('v-' + order[i]);
       if (v && !v.hidden && v.classList.contains('on')) return order[i];
     }
     return 'konvensional';
   }
-  var TITLES = { konvensional: 'Rekap Konvensional', usg: 'Rekap USG', waktu: 'Laporan Waktu Pelayanan', reminder: 'Reminder USG', master: 'Master Pemeriksaan' };
+  var TITLES = { dashboard: 'Dashboard', konvensional: 'Rekap Konvensional', usg: 'Rekap USG', waktu: 'Laporan Waktu Pelayanan', reminder: 'Reminder USG', master: 'Master Pemeriksaan' };
   // Tab Isi Data / Lihat Rekapan / Export dipindah ke dalam kotak (panel) tampilan yang aktif,
   // sama seperti di Rekap USG dan Reminder.
   function placeConventionalNav() {
@@ -105,7 +106,7 @@
     buildThemeToggle();
     syncActive();
     var obs = new MutationObserver(syncActive);
-    ['v-usg', 'v-waktu', 'v-reminder', 'v-master', 'v-isi', 'v-rekap', 'v-export'].forEach(function (id) {
+    ['v-dashboard', 'v-usg', 'v-waktu', 'v-reminder', 'v-master', 'v-isi', 'v-rekap', 'v-export'].forEach(function (id) {
       var el = $(id);
       if (el) obs.observe(el, { attributes: true, attributeFilter: ['hidden', 'class'] });
     });
@@ -115,5 +116,23 @@
   }
 
   applyTheme(currentTheme(), false);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+// Kartu di dashboard membuka menu yang sesuai
+(function () {
+  function init() {
+    var dash = document.getElementById('v-dashboard');
+    if (dash) {
+      dash.addEventListener('click', function (e) {
+        var card = e.target.closest('[data-go]');
+        if (!card) return;
+        var item = document.querySelector('#mainMenu button[data-module="' + card.getAttribute('data-go') + '"]');
+        if (item) item.click();
+      });
+    }
+    var d = document.getElementById('dashDate');
+    if (d) d.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
