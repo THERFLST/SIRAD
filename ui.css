@@ -479,3 +479,12 @@ html body .main-menu-wrap .main-menu button[data-module] svg{flex:none;display:b
 /* Menu/kartu yang tidak boleh diakses oleh peran akun */
 html body .main-menu-wrap .main-menu button[data-module][hidden]{display:none!important}
 .dash-card[hidden]{display:none!important}
+
+/* Status tombol kirim baris setelah semua kolom lengkap dan tanggal H-1 valid */
+#rmRows .rm-row .rm-row-send.is-ready:not(:disabled){background:linear-gradient(135deg,#16a34a,#15803d)!important;color:#fff!important;opacity:1!important}
+#rmRows .rm-row .rm-row-send.is-ready:not(:disabled):hover{background:linear-gradient(135deg,#15803d,#166534)!important}
+.rm-doctor-summary{margin:12px 0 18px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.rm-doctor-summary h4{margin:0 0 10px}
+.rm-doctor-summary table{width:100%;border-collapse:collapse;font-size:13px}
+.rm-doctor-summary th,.rm-doctor-summary td{padding:9px;text-align:left;border-bottom:1px solid var(--border)}
+.rm-doctor-summary th{background:var(--surface2)}

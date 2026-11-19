@@ -2,6 +2,7 @@
    pesan WA otomatis + persiapan per jenis USG, pasien terkirim masuk ke tab Data Pasien (per tanggal & jenis). */
 (function () {
   'use strict';
+  var DRAFT_KEY = 'rekap-radiologi-reminder-usg-draft-v2';
   var KEY = 'rekap-radiologi-reminder-usg-v1', PKEY = 'rekap-radiologi-reminder-usg-prep-v2', AKEY = 'rekap-radiologi-reminder-usg-alur-v1', UKEY = 'rekap-radiologi-reminder-usg-petugas-v1';
   // Mengikuti sheet MASTER REMINDER_H-1_USG_RAJAL_RSSM.xlsx
   var JENIS = ['ABDOMEN FULL', 'PARTIAL / URO', 'MAMMAE', 'JARINGAN LUNAK', 'COLLI / LEHER', 'DOPPLER VASKULAR', 'DOPPLER TESTIS'];
@@ -38,6 +39,22 @@
   function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function load() { var a = loadJSON(KEY, []); return Array.isArray(a) ? a : []; }
   function save(a) { return saveJSON(KEY, a); }
+  // Draft formulir disimpan terpisah dari data pasien. Aman saat tab/browser ditutup.
+  function saveDraft() {
+    var rowsEl = $('rmRows'); if (!rowsEl) return;
+    saveJSON(DRAFT_KEY, { tanggal: $('rmDate') ? $('rmDate').value : '', petugas: $('rmPetugas') ? $('rmPetugas').value : '',
+      rows: readRows(), scanText: $('rmScanText') ? $('rmScanText').value : '', scanOpen: $('rmScanBox') ? !$('rmScanBox').hidden : false,
+      updated: new Date().toISOString() });
+  }
+  function restoreDraft() {
+    var d = loadJSON(DRAFT_KEY, null); if (!d || typeof d !== 'object') return false;
+    if ($('rmDate') && d.tanggal) $('rmDate').value = d.tanggal;
+    if ($('rmPetugas') && d.petugas) $('rmPetugas').value = d.petugas;
+    if ($('rmScanText') && typeof d.scanText === 'string') $('rmScanText').value = d.scanText;
+    if ($('rmScanBox') && d.scanOpen) { $('rmScanBox').hidden = false; $('rmScanToggle').setAttribute('aria-expanded', 'true'); }
+    if (Array.isArray(d.rows) && d.rows.length) renderRows(d.rows);
+    return true;
+  }
   function objOf(k) { var o = loadJSON(k, {}); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; }
   function prepOf(j) { var o = objOf(PKEY); return o[j] != null ? o[j] : (DEFAULT_PREP[j] || ''); }
   function alurOf(p) { var o = objOf(AKEY); return o[p] != null ? o[p] : (DEFAULT_ALUR[p] || ''); }
@@ -156,25 +173,24 @@
   function renderData() {
     var host = $('rmPaneData'); if (!host) return;
     var sent = data.filter(function (p) { return p.status === 'terkirim' || p.status === 'tersimpan'; });
-    var months = {}; sent.forEach(function (p) { months[p.tanggal.slice(0, 7)] = 1; });
-    var mlist = Object.keys(months).sort().reverse();
+    var months = {}; sent.forEach(function (p) { months[(p.tanggal || '').slice(0, 7)] = 1; });
+    var mlist = Object.keys(months).filter(Boolean).sort().reverse();
     if (!dpMonth || !months[dpMonth]) dpMonth = mlist[0] || '';
-    var shown = sent.filter(function (p) { return p.tanggal.slice(0, 7) === dpMonth; });
-    var byDate = {}; shown.forEach(function (p) { (byDate[p.tanggal] = byDate[p.tanggal] || []).push(p); });
-    var html = '<div class="rm-listhead"><h3>Data pasien tersimpan</h3>' +
-      (mlist.length ? '<label class="rm-same">Bulan<select id="rmDpMonth">' + mlist.map(function (m) { var y = m.slice(0, 4), mo = Number(m.slice(5)); return '<option value="' + m + '"' + (m === dpMonth ? ' selected' : '') + '>' + MONTHS[mo - 1] + ' ' + y + '</option>'; }).join('') + '</select></label>' : '') + '</div>';
-    if (!sent.length) html += '<p class="empty-state">Belum ada data pasien tersimpan. Pasien yang diproses melalui tombol per baris akan masuk ke sini.</p>';
+    var shown = sent.filter(function (p) { return (p.tanggal || '').slice(0, 7) === dpMonth; });
+    var byDoctor = {}; shown.forEach(function (p) { var d = p.dokter || 'Dokter belum ditentukan'; (byDoctor[d] = byDoctor[d] || []).push(p); });
+    var doctors = Object.keys(byDoctor).sort();
+    var html = '<div class="rm-listhead"><h3>Data pasien per dokter</h3>' +
+      (mlist.length ? '<label class="rm-same">Bulan<select id="rmDpMonth">' + mlist.map(function (m) { var y=m.slice(0,4), mo=Number(m.slice(5)); return '<option value="'+m+'"'+(m===dpMonth?' selected':'')+'>'+MONTHS[mo-1]+' '+y+'</option>'; }).join('') + '</select></label>' : '') + '</div>';
+    if (!sent.length) html += '<p class="empty-state">Belum ada pasien yang disimpan melalui tombol Kirim WA.</p>';
     else {
       html += '<p class="muted">' + shown.length + ' pasien pada bulan ini.</p>';
-      html += Object.keys(byDate).sort().map(function (d) {
-        var byJ = {}; byDate[d].forEach(function (p) { var j = p.jenis || 'Jenis belum dipilih'; (byJ[j] = byJ[j] || []).push(p); });
-        return '<section class="rm-dp"><h4>' + esc(longDate(d)) + ' <small>' + byDate[d].length + ' pasien</small></h4>' +
-          Object.keys(byJ).sort().map(function (j) {
-            return '<div class="rm-dpj"><div class="rm-dpjh"><b>' + esc(j) + '</b><span>' + byJ[j].length + ' pasien</span></div><ul>' +
-              byJ[j].sort(function (a, c) { return a.nama.localeCompare(c.nama); }).map(function (p) {
-                return '<li><span><strong>' + esc(p.nama) + '</strong> · +' + esc(p.wa) + '<small class="rm-saved-status">' + (p.status === 'terkirim' ? 'Status lama: ditandai terkirim' : 'Tersimpan · WhatsApp dibuka, pengiriman belum terverifikasi') + '</small></span><button type="button" class="danger" data-act="del" data-id="' + esc(p.id) + '">Hapus</button></li>';
-              }).join('') + '</ul></div>';
-          }).join('') + '</section>';
+      html += '<div class="rm-doctor-summary"><h4>Tabulasi pasien per dokter</h4><div class="table-wrap"><table><thead><tr><th>Dokter</th><th>Jumlah pasien</th><th>Jenis pemeriksaan</th></tr></thead><tbody>' +
+        doctors.map(function (doc) { var list=byDoctor[doc], types={}; list.forEach(function(p){var j=p.jenis||'Belum dipilih';types[j]=(types[j]||0)+1;}); return '<tr><td>'+esc(doc)+'</td><td><b>'+list.length+'</b></td><td>'+Object.keys(types).sort().map(function(j){return esc(j)+' ('+types[j]+')';}).join(', ')+'</td></tr>'; }).join('') +
+        '<tr><th>Total</th><th>'+shown.length+'</th><th>'+doctors.length+' dokter</th></tr></tbody></table></div></div>';
+      html += doctors.map(function (doc) { var list=byDoctor[doc], byDate={}; list.forEach(function(p){(byDate[p.tanggal]=byDate[p.tanggal]||[]).push(p);});
+        return '<section class="rm-dp"><h4>'+esc(doc)+' <small>'+list.length+' pasien</small></h4>' + Object.keys(byDate).sort().map(function(date){
+          return '<div class="rm-dpj"><div class="rm-dpjh"><b>'+esc(longDate(date))+'</b><span>'+byDate[date].length+' pasien</span></div><ul>' + byDate[date].sort(function(a,b){return a.nama.localeCompare(b.nama);}).map(function(p){return '<li><span><strong>'+esc(p.nama)+'</strong> · +'+esc(p.wa)+'<small class="rm-saved-status">'+esc(p.jenis||'Jenis belum dipilih')+' · '+esc(p.penjamin||'')+' · '+(p.status==='terkirim'?'Terkirim':'Tersimpan · WhatsApp dibuka')+'</small></span><button type="button" class="danger" data-act="del" data-id="'+esc(p.id)+'">Hapus</button></li>';}).join('')+'</ul></div>';
+        }).join('')+'</section>';
       }).join('');
     }
     host.innerHTML = html;
@@ -212,7 +228,7 @@
   }
   function addRows(n) {
     var vals = readRows(); for (var i = 0; i < n; i++) vals.push({});
-    renderRows(vals); updateSendState();
+    renderRows(vals); updateSendState(); saveDraft();
     var inputs = document.querySelectorAll('#rmRows .rn'); inputs[inputs.length - n].focus();
   }
 
@@ -221,7 +237,7 @@
     var rows = document.querySelectorAll('#rmRows .rm-row');
     rows.forEach(function (row) { row.querySelector(selector).value = value; row.classList.remove('is-bad'); });
     say(label + ' berhasil diterapkan ke ' + rows.length + ' baris. Setiap baris tetap bisa diedit.', false);
-    preview();
+    updateSendState(); saveDraft(); preview();
   }
 
   function isH1(tgl) { return !!tgl && tgl === addDays(todayKey(), 1); }
@@ -233,6 +249,7 @@
       var b = row.querySelector('[data-row-send]'); if (!b) return;
       var full = ['.rn', '.rw', '.rj', '.rd', '.rp'].every(function (sel) { var el = row.querySelector(sel); return !!(el && el.value && el.value.trim()); });
       b.disabled = !ok || !full;
+      b.classList.toggle('is-ready', ok && full);
       b.title = !ok ? tip : (full ? '' : 'Lengkapi nama, WA, jenis, dokter, dan penjamin dulu');
     });
     var h = $('rmDateHint');
@@ -243,7 +260,7 @@
     if (!filled) return say('Semua isian sudah kosong.', false);
     if (!confirm('Kosongkan semua isian pasien? Data yang sudah tersimpan di tab Data Pasien tidak ikut terhapus.')) return;
     renderRows(new Array(STARTROWS).fill(0).map(function () { return {}; }));
-    updateSendState(); say('Semua isian dikosongkan.', false);
+    updateSendState(); saveDraft(); say('Semua isian dikosongkan.', false);
   }
 
   function clearMissing() { document.querySelectorAll('#rmForm .is-missing').forEach(function (e) { e.classList.remove('is-missing'); }); }
@@ -282,7 +299,7 @@
     try { localStorage.setItem(UKEY, petugas); } catch (x) {}
     openWA(p);
     // Isian TIDAK dihapus otomatis; hapus manual lewat tombol × atau "Kosongkan semua isi".
-    row.setAttribute('data-pid', p.id); row.classList.remove('is-bad'); row.classList.add('is-sent');
+    row.setAttribute('data-pid', p.id); row.classList.remove('is-bad'); row.classList.add('is-sent'); saveDraft();
     say('Data ' + nama + ' berhasil disimpan. WhatsApp dibuka; tekan tombol Kirim di WhatsApp. Isian tetap ada sampai kamu hapus manual.', false);
     render();
   }
@@ -308,11 +325,11 @@
       else if (!r.p) problem = 'penjamin belum dipilih';
       else if (data.some(function (p) { return p.wa === wa && p.tanggal === tgl && p.jenis === r.j; })) problem = 'sudah tercatat';
       if (problem) { keep.push({ n: r.n, w: r.w, j: r.j, d: r.d, p: r.p, bad: true }); errs.push('Baris ' + (i + 1) + ': ' + problem); return; }
-      data.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nama: nama, wa: wa, jenis: r.j, dokter: r.d, jam: DOKTER[r.d], penjamin: r.p, petugas: petugas, tanggal: tgl, status: 'belum', dibuat: new Date().toISOString() });
+      data.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nama: nama, wa: wa, jenis: r.j, dokter: r.d, jam: DOKTER[r.d], penjamin: r.p, petugas: petugas, tanggal: tgl, status: 'tersimpan', dibuat: new Date().toISOString() });
       saved++;
     });
     if (saved && !save(data)) return say('Gagal menyimpan: ruang browser penuh.', true);
-    renderRows(keep);
+    renderRows(rows); saveDraft();
     say((saved ? saved + ' pasien tersimpan. ' : '') + (errs.length ? 'Perlu diperbaiki \u2192 ' + errs.join('; ') + '.' : ''), errs.length > 0);
     render();
   }
@@ -516,6 +533,7 @@
     if (!ok && errMsg) head += errMsg + ' ';
     else if (failed) head += failed + ' gagal dibaca. ';
     scanStatus(head + (notes.length ? notes.join('; ') + '. ' : (ok ? 'Data utama terdeteksi. ' : '')) + (ok ? 'Periksa kembali sebelum Kirim WA.' : 'Periksa teksnya atau isi manual.'), failed > 0 || anyMiss || !ok);
+    saveDraft(); updateSendState();
     if (lastRow && !noScroll) lastRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -761,7 +779,7 @@
 
   function init() {
     if (!$('reminderApp')) return;
-    shell(); render();
+    shell(); render(); restoreDraft(); updateSendState();
     $('rmForm').addEventListener('submit', function (e) { e.preventDefault(); });
     ['rmScanFile', 'rmScanCam'].forEach(function (id) { var el = $(id); if (el) el.addEventListener('change', function (e) { var fl = e.target.files; if (fl && fl.length) applyScanToForm(Array.prototype.slice.call(fl)); e.target.value = ''; }); });
     $('rmScanFill').addEventListener('click', applyScanAll);
@@ -771,8 +789,8 @@
       if (!box.hidden) $('rmScanText').focus();
     });
     $('rmRows').addEventListener('change', function (e) { if (e.target.classList && e.target.classList.contains('rn')) e.target.value = titleName(e.target.value); });
-    $('rmRows').addEventListener('input', updateSendState);
-    $('rmRows').addEventListener('change', updateSendState);
+    $('rmRows').addEventListener('input', function () { updateSendState(); saveDraft(); });
+    $('rmRows').addEventListener('change', function () { updateSendState(); saveDraft(); });
     $('rmRows').addEventListener('click', function (e) { var b = e.target.closest('[data-row-send]'); if (b) saveOneRow(b.closest('.rm-row')); });
     $('rmForm').addEventListener('click', function (e) {
       var doctor = e.target.closest('[data-apply-doctor]');
@@ -784,13 +802,16 @@
     $('rmForm').addEventListener('change', function (e) { e.target.classList && e.target.classList.remove('is-missing'); });
     $('rmAdd').addEventListener('click', function () { addRows(1); });
     $('rmClearAll').addEventListener('click', clearAllRows);
-    $('rmDate').addEventListener('input', updateSendState); $('rmDate').addEventListener('change', updateSendState);
+    $('rmDate').addEventListener('input', function(){updateSendState();saveDraft();}); $('rmDate').addEventListener('change', function(){updateSendState();saveDraft();});
+    $('rmPetugas').addEventListener('change', saveDraft);
+    $('rmScanText').addEventListener('input', saveDraft);
+    window.addEventListener('pagehide', saveDraft); window.addEventListener('beforeunload', saveDraft);
     $('rmAdd5').addEventListener('click', function () { addRows(5); });
     $('rmRows').addEventListener('click', function (e) {
       var x = e.target.closest('[data-rm]'); if (!x) return;
       var row = x.closest('.rm-row'), rows = document.querySelectorAll('#rmRows .rm-row');
-      if (rows.length > MINROWS) { var vals = readRows(); vals.splice(Array.prototype.indexOf.call(rows, row), 1); renderRows(vals); updateSendState(); }
-      else { row.querySelectorAll('input,select').forEach(function (i) { i.value = ''; }); row.removeAttribute('data-pid'); row.classList.remove('is-bad', 'is-sent'); }
+      if (rows.length > MINROWS) { var vals = readRows(); vals.splice(Array.prototype.indexOf.call(rows, row), 1); renderRows(vals); updateSendState(); saveDraft(); }
+      else { row.querySelectorAll('input,select').forEach(function (i) { i.value = ''; }); row.removeAttribute('data-pid'); row.classList.remove('is-bad', 'is-sent'); saveDraft(); updateSendState(); }
     });
     $('rmTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-t]'); if (b) setTab(b.dataset.t); });
     $('rmBanner').addEventListener('click', function (e) { if (e.target.closest('[data-act="queue"]')) startQueue(); });
