@@ -146,9 +146,10 @@
     var due = pending.filter(function (p) { return stateOf(p) === 'siap'; });
     var b = $('rmBanner');
     b.className = 'rm-banner' + (due.length ? ' is-due' : '');
+    b.style.display = due.length ? '' : 'none';
     b.innerHTML = due.length
       ? '<div><strong>' + due.length + ' pasien perlu dikirimi reminder hari ini</strong><span>Pemeriksaan besok, ' + esc(longDate(tomorrow)) + '. Kirim dan simpan setiap pasien melalui tombol pada barisnya.</span></div>'
-      : '<strong>Tidak ada reminder yang perlu dikirim hari ini</strong><span>Pasien dengan pemeriksaan besok (' + esc(shortDate(tomorrow)) + ') akan muncul di sini.</span>';
+      : '';
     var rows = pending.slice().sort(function (a, c) { return a.tanggal < c.tanggal ? -1 : a.tanggal > c.tanggal ? 1 : a.nama.localeCompare(c.nama); });
     $('rmList').innerHTML = rows.length ? rows.map(item).join('') : '<p class="empty-state">' + (data.length ? 'Semua pasien sudah dikirimi reminder. Lihat di tab Data Pasien.' : 'Belum ada pasien. Isi formulir di atas untuk mencatat pasien pertama.') + '</p>';
     renderData();
